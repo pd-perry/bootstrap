@@ -88,13 +88,14 @@ class BootstrapPSRL:
     #                 model_reward[env, int(i[0]), int(i[1])] += i[3]
     #     return num_visits, model_reward
 
-    def gather_num_visits(self, sampled_index):
+    def gather_num_visits(self, sampled_index_from_bootstrap):
+        #gathers the num_visits for each environment based on the index sampled from bootstrap
         #sampled_index has shape [env, buffer_length]
         num_visits = torch.zeros((self.num_envs, self.S, self.A, self.S))
         model_reward = torch.zeros((self.num_envs, self.S, self.A))
         buffer = torch.tensor(self.buffer)
         for env in range(self.num_envs):
-            data_list = buffer[env].unsqueeze(0).repeat(self.num_agents, 1, 1).gather(1, sampled_index[env].unsqueeze(-1).repeat(1, 1, 4).type(torch.int64)) #gathers the data from buffer based on sampled index
+            data_list = buffer[env].unsqueeze(0).repeat(self.num_agents, 1, 1).gather(1, sampled_index_from_bootstrap[env].unsqueeze(-1).repeat(1, 1, 4).type(torch.int64)) #gathers the data from buffer based on sampled index
             data_list = data_list.reshape(-1, 4)
             for i in data_list:
                 num_visits[env, int(i[0]), int(i[1]), int(i[2])] += 1
@@ -169,8 +170,9 @@ class BootstrapPSRL:
                 for env in range(self.num_envs):
                     self.buffer[env] += tuple(zip(s_t[env], a_t[env], s_next[env], reward[env]))
 
-            bootstrap_index = self.sample(self.num_agents, self.num_envs, len(self.buffer[0]))
+            bootstrap_index = self.sample(self.num_agents, self.num_envs, len(self.buffer[0])) #samples each agent's bootstrap index in each environment
             sampled_index = torch.zeros((self.num_envs, self.num_agents, len(self.buffer[0])))
+            # samples index used for replay buffer from bootstrap index
             for env in range(self.num_envs):
                 indices = torch.randint(low=0, high=len(self.buffer[0]), size=(self.num_agents, len(self.buffer[0])))
                 # sampled_index[env] = torch.multinomial(bootstrap_index[env, :, :].type(torch.float32), len(self.buffer[0]), replacement=True)
